@@ -1,128 +1,105 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-import requests, csv
-from io import StringIO
 from PIL import Image, ImageDraw, ImageFont
+import requests
+import io
 
-# ========== CONFIG ==========
+# ================== CONFIG ==================
 TOKEN = "MTQ3MDMzNTI5NTUxMjY0MTU1OQ.Gxuh14.cB_fSZnGcCudyKdESDDZ609BaBrylSJTSMpiQ4"
 
-ADMIN_ROLE_ID = 1431219831322968074      # ADMIN ROLE ID
-LEADERBOARD_CHANNEL_ID = 1431223777600999525  # CHANNEL ID
+ADMIN_ROLE_ID = 1431219831322968074
+LEADERBOARD_CHANNEL_ID = 1431223777600999525
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/1EpRPwqOB7q8O9V2cp2khb0cAijGiXid1ZXPKQnwzsG4/export?format=csv"
-TOP_LIMIT = 50
-# ============================
+GOOGLE_SHEET_CSV = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1EpRPwqOB7q8O9V2cp2khb0cAijGiXid1ZXPKQnwzsG4"
+    "/export?format=csv"
+)
+
+BACKGROUND_IMAGE = "background.png"
+FONT_PATH = "font.ttf"
+
+TITLE_TEXT = "STAKE X ADEFT"
+SUBTITLE_TEXT = "WAGER LEADERBOARD"
+# ============================================
+
 
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-# ---------- HELPERS ----------
-
-def mask_username(name):
-    name = str(name)
-    if len(name) <= 4:
-        return "xx**"
-    return name[:3] + "*" * (len(name) - 5) + name[-2:]
+intents.message_content = True
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 
-def read_sheet():
-    r = requests.get(CSV_URL, timeout=20)
-    r.raise_for_status()
-
-    reader = csv.DictReader(StringIO(r.text))
+def fetch_sheet_data():
+    r = requests.get(GOOGLE_SHEET_CSV)
+    lines = r.text.splitlines()[1:]  # header skip
     data = []
 
-    for row in reader:
-        row = {k.strip().lower(): v for k, v in row.items() if k}
-        user = row.get("username")
-        wager = row.get("wager")
+    for line in lines:
+        row = line.split(",")
+        if len(row) >= 2:
+            username = row[0].strip()
+            wager = row[1].strip()
+            if username and wager:
+                data.append((username, wager))
 
-        if not user or not wager:
-            continue
-
-        try:
-            wager = float(str(wager).replace(",", "").replace("$", ""))
-            data.append({"user": user, "wager": wager})
-        except:
-            pass
-
-    data.sort(key=lambda x: x["wager"], reverse=True)
-    return data[:TOP_LIMIT]
+    return data[:50]
 
 
-def generate_image(data):
-    bg = Image.open("background.jpg").convert("RGB")
+def generate_leaderboard(data):
+    bg = Image.open(BACKGROUND_IMAGE).convert("RGBA")
+    draw = ImageDraw.Draw(bg)
+
     W, H = bg.size
-    img = bg.copy()
-    draw = ImageDraw.Draw(img)
 
-    try:
-        title_font = ImageFont.truetype("arialbd.ttf", 60)
-        sub_font = ImageFont.truetype("arialbd.ttf", 34)
-        head_font = ImageFont.truetype("arialbd.ttf", 30)
-        row_font = ImageFont.truetype("arialbd.ttf", 32)
-        small_font = ImageFont.truetype("arialbd.ttf", 26)
-    except:
-        title_font = sub_font = head_font = row_font = small_font = ImageFont.load_default()
+    title_font = ImageFont.truetype(FONT_PATH, 72)
+    header_font = ImageFont.truetype(FONT_PATH, 42)
+    row_font = ImageFont.truetype(FONT_PATH, 38)
 
     # ---------- TITLE ----------
-    draw.text((W//2 - 260, 40), "STAKE x ADFET", fill="white", font=title_font)
-    draw.text((W//2 - 260, 115), "WAGER LEADERBOARD", fill="#00bfff", font=sub_font)
+    draw.text((W//2 - 260, 40), TITLE_TEXT, fill="yellow", font=title_font)
+    draw.text((W//2 - 260, 120), SUBTITLE_TEXT, fill="white", font=header_font)
 
     # ---------- HEADERS ----------
-    y = 190
-    draw.text((90, y), "RANK", fill="white", font=head_font)
-    draw.text((250, y), "USERNAME", fill="white", font=head_font)
-    draw.text((W - 350, y), "WAGER", fill="white", font=head_font)
+    start_y = 210
+    draw.text((140, start_y), "RANK", fill="cyan", font=header_font)
+    draw.text((300, start_y), "USERNAME", fill="cyan", font=header_font)
+    draw.text((820, start_y), "WAGER", fill="cyan", font=header_font)
 
-    draw.line((80, y + 40, W - 80, y + 40), fill="#00bfff", width=2)
+    y = start_y + 60
 
-    # ---------- ROWS ----------
-    y += 65
-    for i, row in enumerate(data, start=1):
-        draw.text((90, y), f"{i:02}", fill="white", font=row_font)
-        draw.text((250, y), mask_username(row["user"]), fill="white", font=row_font)
-        draw.text((W - 350, y), f"${int(row['wager'])}", fill="white", font=row_font)
-        y += 45
+    for i, (user, wager) in enumerate(data, start=1):
+        draw.text((150, y), str(i), fill="white", font=row_font)
+        draw.text((300, y), user, fill="white", font=row_font)
+        draw.text((820, y), wager, fill="white", font=row_font)
+        y += 48
 
-    # ---------- FOOTER ----------
-    draw.line((200, H - 130, W - 200, H - 130), fill="white", width=1)
-    draw.text((W//2 - 140, H - 95), "USE CODE ADFET", fill="white", font=small_font)
+    out = io.BytesIO()
+    bg.save(out, format="PNG")
+    out.seek(0)
+    return out
 
-    img.save("leaderboard.png")
-    return "leaderboard.png"
-
-# ---------- EVENTS ----------
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print("✅ Bot online")
+    print(f"✅ Bot logged in as {bot.user}")
 
-# ---------- COMMAND ----------
 
-@bot.tree.command(name="leaderboard", description="Show wager leaderboard")
-async def leaderboard(interaction: discord.Interaction):
-
-    if interaction.channel_id != CHANNEL_ID:
-        await interaction.response.send_message("❌ Wrong channel", ephemeral=True)
+@bot.command()
+async def leaderboard(ctx):
+    if ctx.channel.id != LEADERBOARD_CHANNEL_ID:
         return
 
-    if not any(r.id == ADMIN_ROLE_ID for r in interaction.user.roles):
-        await interaction.response.send_message("❌ No permission", ephemeral=True)
+    if ADMIN_ROLE_ID not in [r.id for r in ctx.author.roles]:
+        await ctx.send("❌ Admin only command")
         return
 
-    await interaction.response.defer(thinking=True)
-
-    data = read_sheet()
+    data = fetch_sheet_data()
     if not data:
-        await interaction.followup.send("❌ No data found")
+        await ctx.send("❌ No data found")
         return
 
-    img = generate_image(data)
-    await interaction.followup.send(file=discord.File(img))
+    img = generate_leaderboard(data)
+    await ctx.send(file=discord.File(img, "leaderboard.png"))
 
-# ---------- RUN ----------
-bot.run(TOKEN)
+
+bot.run(BOT_TOKEN)
