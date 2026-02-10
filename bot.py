@@ -7,6 +7,7 @@ import io
 # ================== CONFIG ==================
 TOKEN = "MTQ3MDMzNTI5NTUxMjY0MTU1OQ.Gxuh14.cB_fSZnGcCudyKdESDDZ609BaBrylSJTSMpiQ4"
 
+
 ADMIN_ROLE_ID = 1431219831322968074
 LEADERBOARD_CHANNEL_ID = 1431223777600999525
 
@@ -16,8 +17,8 @@ GOOGLE_SHEET_CSV = (
     "/export?format=csv"
 )
 
-BACKGROUND_IMAGE = "background.png"
-FONT_PATH = "font.ttf"
+BACKGROUND_IMAGE = "background.png"   # TU APNI IMAGE DEGA
+FONT_PATH = "font.ttf"                # TU APNA FONT DEGA
 
 TITLE_TEXT = "STAKE X ADEFT"
 SUBTITLE_TEXT = "WAGER LEADERBOARD"
@@ -31,7 +32,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 def fetch_sheet_data():
     r = requests.get(GOOGLE_SHEET_CSV)
-    lines = r.text.splitlines()[1:]  # header skip
+    lines = r.text.splitlines()[1:]
     data = []
 
     for line in lines:
@@ -51,27 +52,28 @@ def generate_leaderboard(data):
 
     W, H = bg.size
 
-    title_font = ImageFont.truetype(FONT_PATH, 72)
-    header_font = ImageFont.truetype(FONT_PATH, 42)
-    row_font = ImageFont.truetype(FONT_PATH, 38)
+    # 🔥 FONT SIZE BADHA DIYA (MAIN FIX)
+    title_font = ImageFont.truetype(FONT_PATH, 90)
+    header_font = ImageFont.truetype(FONT_PATH, 56)
+    row_font = ImageFont.truetype(FONT_PATH, 48)
 
     # ---------- TITLE ----------
-    draw.text((W//2 - 260, 40), TITLE_TEXT, fill="yellow", font=title_font)
-    draw.text((W//2 - 260, 120), SUBTITLE_TEXT, fill="white", font=header_font)
+    draw.text((W//2 - 350, 40), TITLE_TEXT, fill="yellow", font=title_font)
+    draw.text((W//2 - 360, 150), SUBTITLE_TEXT, fill="white", font=header_font)
 
     # ---------- HEADERS ----------
-    start_y = 210
+    start_y = 260
     draw.text((140, start_y), "RANK", fill="cyan", font=header_font)
-    draw.text((300, start_y), "USERNAME", fill="cyan", font=header_font)
-    draw.text((820, start_y), "WAGER", fill="cyan", font=header_font)
+    draw.text((320, start_y), "USERNAME", fill="cyan", font=header_font)
+    draw.text((850, start_y), "WAGER", fill="cyan", font=header_font)
 
-    y = start_y + 60
+    y = start_y + 80   # 👈 spacing badhayi
 
     for i, (user, wager) in enumerate(data, start=1):
         draw.text((150, y), str(i), fill="white", font=row_font)
-        draw.text((300, y), user, fill="white", font=row_font)
-        draw.text((820, y), wager, fill="white", font=row_font)
-        y += 48
+        draw.text((320, y), user, fill="white", font=row_font)
+        draw.text((850, y), wager, fill="white", font=row_font)
+        y += 60          # 👈 line gap badhaya
 
     out = io.BytesIO()
     bg.save(out, format="PNG")
@@ -102,4 +104,4 @@ async def leaderboard(ctx):
     await ctx.send(file=discord.File(img, "leaderboard.png"))
 
 
-bot.run(BOT_TOKEN)
+bot.run(TOKEN)
